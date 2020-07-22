@@ -1,43 +1,45 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const gravatar = require('gravatar');
 const router = express.Router();
+const gravatar = require('gravatar');
+const User = require('../../models/Users');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const config = require('config');
 const { check, validationResult } = require('express-validator');
 
-const User = require('../../models/Users');
-
 // @route   POST api/users
-// @desc    Register User
+// @desc    Register user
 // @access  Public
+
 router.post(
   '/',
   [
-    check('name', 'Name is requred!')
+    check('name', 'Name is required')
       .not()
       .isEmpty(),
-    check('email', 'Please enter a valid email!').isEmail(),
+    check('email', 'Please include a valid email').isEmail(),
     check(
       'password',
-      'Please enter a password with 6 or more characters.'
+      'Please enter a password with at leats 6 characters'
     ).isLength({ min: 6 })
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      // if there are errors
       return res.status(400).json({ errors: errors.array() });
     }
-
     const { name, email, password } = req.body;
+
     try {
-      // see if user exists, send error (no multiple emails)
+      //Check if user exists
       let user = await User.findOne({ email });
       if (user) {
         return res
           .status(400)
           .json({ errors: [{ msg: 'User already exists' }] });
       }
-      // Get users gravatar (based on email) to be part of user and create user
+
+      // get gravatar
       const avatar = gravatar.url(email, {
         s: '200',
         r: 'pg',
@@ -45,19 +47,30 @@ router.post(
       });
       user = new User({ name, email, avatar, password });
 
-      // Encrypt password using bcrypt, save user
+      //Encrypt password
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
       await user.save();
 
-      // Return jsonwebtoken
-      res.send('user registered');
+      // return jsonwebtoken
+      const payload = {
+        user: {
+          id: user.id
+        }
+      };
+      jwt.sign(
+        payload,
+        config.get('jwtSecret'),
+        { expiresIn: 360000 },
+        (err, token) => {
+          if (err) throw err;
+          res.json({ token });
+        }
+      );
     } catch (err) {
       console.error(err.message);
-      res.status(500).send('Server error');
+      res.status(500).send('Server Error');
     }
-
-    //res.send('User route');
   }
 );
 

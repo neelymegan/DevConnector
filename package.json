@@ -4,8 +4,7 @@
   "description": "Social Network",
   "main": "server.js",
   "scripts": {
-    "start": "node server",
-    "server": "nodemon server"
+    "start": "nodemon --trace-warnings server"
   },
   "author": "Megan Neely",
   "license": "ISC",
